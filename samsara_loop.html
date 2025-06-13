@@ -1,0 +1,706 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Samsara Loop Simulator</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        /* Remove all pseudo-elements completely */
+        *, *::before, *::after {
+            content: none !important;
+        }
+
+        html, body {
+            height: 100%;
+            overflow: hidden;
+            background: #111 !important;
+            color: #e0e0e0 !important;
+        }
+
+        body {
+            background: #111 !important;
+            color: #e0e0e0 !important;
+            font-family: 'Courier New', Consolas, 'Liberation Mono', Menlo, Courier, monospace !important;
+            height: 100vh;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            padding: 10px;
+        }
+
+        .splash-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: #111 !important;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 15px;
+            z-index: 1000;
+            transition: opacity 0.8s ease-out;
+        }
+
+        .splash-screen.hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .splash-title {
+            font-size: clamp(18px, 4vw, 28px);
+            margin-bottom: 10px;
+            color: #f0f0f0;
+        }
+
+        .splash-subtitle {
+            font-size: clamp(11px, 2.5vw, 14px);
+            margin-bottom: 15px;
+            color: #ccc;
+            max-width: 300px;
+        }
+
+        .awareness-time {
+            font-size: clamp(11px, 2.2vw, 14px);
+            color: #888;
+            margin-bottom: 15px;
+            font-style: italic;
+        }
+
+        .settings-panel {
+            background: rgba(17, 17, 17, 0.98);
+            border: 2px solid #777;
+            border-radius: 6px;
+            padding: 10px;
+            margin-bottom: 15px;
+            width: 100%;
+            max-width: 280px;
+        }
+
+        .setting-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+            font-size: clamp(10px, 2vw, 12px);
+        }
+
+        .setting-row:last-child {
+            margin-bottom: 0;
+        }
+
+        .setting-label {
+            color: #fff;
+            min-width: 60px;
+            text-align: left;
+            font-weight: 500;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 4px;
+        }
+
+        .option-btn {
+            padding: 4px 8px;
+            font-size: clamp(9px, 1.8vw, 11px);
+            min-height: 28px;
+            min-width: 45px;
+            background: #222;
+            color: #fff;
+            border: 2px solid #666;
+            flex: 1;
+            font-family: inherit;
+            cursor: pointer;
+            border-radius: 4px;
+            transition: all 0.2s ease;
+        }
+
+        .option-btn.active {
+            background: #555;
+            color: #fff;
+            border-color: #999;
+            font-weight: 600;
+        }
+
+        .option-btn:hover {
+            background: #555;
+            border-color: #777;
+        }
+
+        .splash-begin-btn {
+            background: linear-gradient(135deg, #333, #555);
+            color: #fff;
+            border: 2px solid #666;
+            padding: clamp(8px, 2vw, 12px) clamp(16px, 4vw, 20px);
+            font-size: clamp(12px, 3vw, 16px);
+            font-family: inherit;
+            cursor: pointer;
+            border-radius: 6px;
+            transition: all 0.3s ease;
+            min-height: 40px;
+        }
+
+        .splash-begin-btn:hover {
+            background: linear-gradient(135deg, #444, #666);
+            border-color: #888;
+            transform: translateY(-2px);
+        }
+
+        .container {
+            width: 100%;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            position: relative;
+            background: #111 !important;
+        }
+
+        .home-btn {
+            position: absolute;
+            top: clamp(10px, 3vw, 20px);
+            left: clamp(10px, 3vw, 20px);
+            background: none;
+            color: #aaa;
+            border: none;
+            font-size: clamp(12px, 2.5vw, 16px);
+            font-family: inherit;
+            cursor: pointer;
+            text-decoration: underline;
+            transition: color 0.3s ease;
+            z-index: 100;
+        }
+
+        .home-btn:hover {
+            color: #fff;
+        }
+
+        .progress-container {
+            position: absolute;
+            top: clamp(10px, 3vw, 20px);
+            right: clamp(10px, 3vw, 20px);
+            width: clamp(40px, 8vw, 60px);
+            height: clamp(40px, 8vw, 60px);
+            opacity: 0;
+            transition: opacity 0.5s ease;
+            border-radius: 50%;
+            background: #333;
+        }
+
+        .progress-container.visible {
+            opacity: 0.8;
+        }
+
+        .progress-fill {
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            background: conic-gradient(#666 0deg, transparent 0deg);
+            transition: background 0.1s ease;
+        }
+
+        .phrase {
+            font-size: clamp(16px, 4vw, 24px);
+            min-height: clamp(50px, 10vw, 80px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            transition: opacity 0.8s ease-in-out;
+            margin-bottom: clamp(15px, 4vw, 25px);
+            padding: 0 15px;
+            color: #e0e0e0 !important;
+            font-family: 'Courier New', Consolas, 'Liberation Mono', Menlo, Courier, monospace !important;
+        }
+
+        .phrase.visible {
+            opacity: 1;
+        }
+
+        .recognize-btn, .restart-btn {
+            background: linear-gradient(135deg, #333, #555);
+            color: #fff;
+            border: 2px solid #666;
+            padding: clamp(8px, 2vw, 12px) clamp(16px, 4vw, 20px);
+            font-size: clamp(12px, 3vw, 16px);
+            font-family: inherit;
+            cursor: pointer;
+            border-radius: 6px;
+            transition: all 0.3s ease;
+            min-height: 40px;
+        }
+
+        .recognize-btn:hover, .restart-btn:hover {
+            background: linear-gradient(135deg, #444, #666);
+            border-color: #888;
+            transform: translateY(-2px);
+        }
+
+        .stillness-message {
+            font-size: clamp(16px, 4vw, 24px);
+            opacity: 0;
+            text-align: center;
+            max-width: 90%;
+            line-height: 1.8;
+            color: #f0f0f0 !important;
+            padding: 0 15px;
+            font-family: 'Courier New', Consolas, 'Liberation Mono', Menlo, Courier, monospace !important;
+        }
+
+        .stillness-message.typing {
+            opacity: 1;
+        }
+
+        .restart-btn {
+            opacity: 0;
+            margin-top: clamp(15px, 4vw, 25px);
+            min-width: 160px;
+        }
+
+        .restart-btn.visible {
+            opacity: 1;
+        }
+
+        /* Remove all animations completely */
+        * {
+            animation: none !important;
+        }
+
+        @media screen and (max-height: 500px) {
+            .splash-screen { padding: 10px; }
+            .splash-title { font-size: clamp(16px, 3.5vw, 24px); margin-bottom: 6px; }
+            .splash-subtitle { font-size: clamp(10px, 2vw, 12px); margin-bottom: 10px; }
+            .settings-panel { padding: 8px; margin-bottom: 10px; max-width: 260px; }
+            .setting-row { margin-bottom: 6px; }
+            .phrase { font-size: clamp(14px, 3vw, 18px); margin-bottom: 10px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="splash-screen" id="splashScreen">
+        <h1 class="splash-title">Samsara Loop Simulator</h1>
+        <p class="splash-subtitle">Break the cycle of unconscious patterns</p>
+
+        <div class="awareness-time" id="awarenessTime">Time in Awareness: 0m 0s</div>
+        
+        <div class="settings-panel">
+            <div class="setting-row">
+                <span class="setting-label">Type:</span>
+                <div class="button-group">
+                    <button class="option-btn active" data-category="all">All</button>
+                    <button class="option-btn" data-category="digital">Tech</button>
+                    <button class="option-btn" data-category="anxiety">Mind</button>
+                    <button class="option-btn" data-category="spiritual">Soul</button>
+                </div>
+            </div>
+            
+            <div class="setting-row">
+                <span class="setting-label">Time:</span>
+                <div class="button-group">
+                    <button class="option-btn active" data-duration="60">1m</button>
+                    <button class="option-btn" data-duration="120">2m</button>
+                    <button class="option-btn" data-duration="180">3m</button>
+                    <button class="option-btn" data-duration="300">5m</button>
+                </div>
+            </div>
+        </div>
+        
+        <button class="splash-begin-btn" onclick="beginExperience()">Enter the Loop</button>
+    </div>
+
+    <div class="container">
+        <button class="home-btn" onclick="goHome()">Home</button>
+        
+        <div class="progress-container">
+            <div class="progress-fill"></div>
+        </div>
+
+        <div class="phrase" id="phrase"></div>
+        <button class="recognize-btn" id="recognizeBtn" onclick="recognize()">Recognize</button>
+        <div class="stillness-message" id="stillnessMessage"></div>
+        <button class="restart-btn" id="restartBtn" onclick="restartLoop()">You can begin again.</button>
+    </div>
+
+    <script>
+        const sessionData = {
+            category: "all",
+            duration: 60,
+            totalAwarenessTime: 0
+        };
+
+        const recognitionMessages = [
+            "You never fell. Samsara is just a rumor.",
+            "Breath happens. Mind happens. You do not. Just sit with that.",
+            "Who told you you were separate?",
+            "Liberation is not later. It is what is reading this now.",
+            "Awareness never left. It does not need fixing. Just sit with that.",
+            "No one is stuck. There is no one here.",
+            "What you are chasing is already looking out of your eyes.",
+            "You were never in it. It has always been This.",
+            "Sound, light, ache, joy - just waves on still water.",
+            "The silence is never disturbed.",
+            "This is it. It never was not.",
+            "Be the sky, not the storm.",
+            "There is no shame in forgetting. You just remembered.",
+            "This breath is clean. Start again.",
+            "This is not personal. This is presence.",
+            "You are not in time. Time is in you.",
+            "You do not need to understand. You are it.",
+            "The loop breaks the second you see through it.",
+            "Hey. It is okay. You are here now. Just sit with that.",
+            "Nothing to fix. Just rest, dawg.",
+            "The seeking was part of the show. Just sit with that.",
+            "This moment is unconstructed. Rest here.",
+            "You are the background, not the broadcast. Just sit with that.",
+            "Do not try to stop the noise. Notice the stillness underneath.",
+            "No way out, 'cause there is no way in. Just sit with that.",
+            "Drop the effort. You were always here.",
+            "No witness needed when there is only This.",
+            "Thoughts arise. They are not yours.",
+            "The light is seeing itself.",
+            "Even craving arises in presence. Nothing is foreign. Just sit with that."
+        ];
+
+        const phraseCategories = {
+            digital: [
+                "Checking email again.",
+                "Scrolling news feeds.",
+                "Opening Twitter for a second.",
+                "Clicking the same apps again.",
+                "Scrolling until your soul leaks out.",
+                "Getting mad at slow Wi-Fi.",
+                "Refreshing the pain on purpose.",
+                "Obsessing over analytics.",
+                "Opening another tab.",
+                "Refreshing out of habit.",
+                "Looking for validation.",
+                "Rereading notifications.",
+                "Looking for God in the screen.",
+                "Picking up your phone without noticing.",
+                "Counting followers instead of breaths.",
+                "Refreshing Instagram.",
+                "Making content instead of contact.",
+                "Clicking through tabs like a ghost.",
+                "Refreshing your inbox.",
+                "Editing your appearance in photos.",
+                "Arguing with strangers online.",
+                "Perfecting your image.",
+                "Waiting for someone to text first.",
+                "Measuring your worth by metrics.",
+                "Stalking your ex on social media.",
+                "Checking if people saw your story.",
+                "Filtering reality through your phone screen.",
+                "Doomscrolling the apocalypse.",
+                "Refreshing bad news compulsively.",
+                "Checking breaking news at 3am."
+            ],
+            anxiety: [
+                "Complaining mentally.",
+                "Resisting what is.",
+                "Wishing for different conditions.",
+                "Feeling not-good-enough.",
+                "Comparing your life to someone else highlight reel.",
+                "Trying to control how you are seen.",
+                "Avoiding mirrors.",
+                "Replaying a past mistake.",
+                "Rerunning old arguments in your head.",
+                "Worrying about money again.",
+                "Thinking of clever responses too late.",
+                "Worrying about what they think.",
+                "Second-guessing yourself.",
+                "Telling yourself a story you do not believe.",
+                "Bargaining with reality.",
+                "Trying to manage others opinions.",
+                "Micromanaging the illusion.",
+                "Blaming your mood on others.",
+                "Doubting your own insight.",
+                "Trying to hold it all together.",
+                "Checking your bank balance obsessively.",
+                "Rehearsing conversations that will not happen.",
+                "Seeking approval from people you do not respect.",
+                "Comparing your insides to others outsides.",
+                "Making your problems more interesting than they are.",
+                "Solving problems that do not exist yet.",
+                "Absorbing others outrage as your own.",
+                "Reading headlines to confirm your worst fears.",
+                "Feeling guilty for not caring enough.",
+                "Making your anxiety feel important."
+            ],
+            spiritual: [
+                "Measuring presence by productivity.",
+                "Trying to fix your spiritual path.",
+                "Postponing the sit.",
+                "Resisting what you already know.",
+                "Running from stillness.",
+                "Convincing yourself you are not ready.",
+                "Looking for peace through achievement.",
+                "Planning your awakening instead of waking up.",
+                "Analyzing your healing instead of healing.",
+                "Searching for comfort instead of truth.",
+                "Googling how to be present.",
+                "Consuming self-help like junk food.",
+                "Looking for the perfect meditation app.",
+                "Reading about mindfulness instead of being mindful.",
+                "Planning your presence.",
+                "Scheduling your flow state.",
+                "Checking your meditation app instead of meditating.",
+                "Buying mindfulness courses to avoid being mindful.",
+                "Following spiritual teachers instead of your breath.",
+                "Making awakening another achievement.",
+                "Judging your meditation while meditating.",
+                "Comparing your practice to others.",
+                "Using spiritual bypassing to avoid feeling.",
+                "Making your trauma your identity.",
+                "Collecting healing modalities like trophies.",
+                "Trying to think your way out of thinking.",
+                "Making enlightenment a future goal.",
+                "Using presence as performance.",
+                "Spiritual shopping instead of sitting still.",
+                "Making your path more important than your peace."
+            ]
+        };
+
+        let currentPhraseIndex = 0;
+        let loopInterval;
+        let isLooping = false;
+        let progressInterval;
+        let startTime;
+        let currentPhrases = [];
+
+        const phraseElement = document.getElementById("phrase");
+        const recognizeBtn = document.getElementById("recognizeBtn");
+        const stillnessMessage = document.getElementById("stillnessMessage");
+        const restartBtn = document.getElementById("restartBtn");
+        const progressContainer = document.querySelector(".progress-container");
+        const progressFill = document.querySelector(".progress-fill");
+        const splashScreen = document.getElementById("splashScreen");
+        const awarenessTimeDisplay = document.getElementById("awarenessTime");
+
+        function updateCurrentPhrases() {
+            if (sessionData.category === "all") {
+                currentPhrases = Object.values(phraseCategories).flat();
+            } else {
+                currentPhrases = phraseCategories[sessionData.category] || [];
+            }
+        }
+
+        function showNextPhrase() {
+            if (!isLooping) return;
+            
+            phraseElement.classList.remove("visible");
+            
+            setTimeout(() => {
+                if (currentPhrases.length > 0) {
+                    currentPhraseIndex = Math.floor(Math.random() * currentPhrases.length);
+                    phraseElement.textContent = currentPhrases[currentPhraseIndex];
+                    phraseElement.classList.add("visible");
+                }
+            }, 400);
+        }
+
+        function startLoop() {
+            isLooping = true;
+            updateCurrentPhrases();
+            
+            phraseElement.textContent = "";
+            phraseElement.classList.remove("visible");
+            
+            showNextPhrase();
+            loopInterval = setInterval(showNextPhrase, 2000);
+        }
+
+        function typeMessage(element, message, speed = 50) {
+            element.textContent = "";
+            element.classList.add("typing");
+            let i = 0;
+            
+            function typeChar() {
+                if (i < message.length) {
+                    element.textContent += message.charAt(i);
+                    i++;
+                    setTimeout(typeChar, speed);
+                }
+            }
+            
+            typeChar();
+        }
+
+        function updateProgress() {
+            const elapsed = Date.now() - startTime;
+            const progress = Math.min(elapsed / (sessionData.duration * 1000), 1);
+            const degrees = progress * 360;
+            progressFill.style.background = `conic-gradient(#666 ${degrees}deg, transparent ${degrees}deg)`;
+            
+            if (progress >= 1) {
+                clearInterval(progressInterval);
+                progressInterval = null;
+                
+                progressContainer.classList.remove("visible");
+                
+                stillnessMessage.classList.remove("typing");
+                
+                const roundTime = sessionData.duration;
+                sessionData.totalAwarenessTime += roundTime;
+                updateAwarenessTimeDisplay();
+                
+                stillnessMessage.style.opacity = "0";
+                
+                setTimeout(() => {
+                    restartBtn.style.display = "block";
+                    restartBtn.style.opacity = "1";
+                    restartBtn.classList.add("visible");
+                }, 800);
+            }
+        }
+
+        function getRandomMessage() {
+            return recognitionMessages[Math.floor(Math.random() * recognitionMessages.length)];
+        }
+
+        function updateAwarenessTimeDisplay() {
+            const totalSeconds = sessionData.totalAwarenessTime;
+            const minutes = Math.floor(totalSeconds / 60);
+            const seconds = totalSeconds % 60;
+            awarenessTimeDisplay.textContent = `Freedom from Samsara: ${minutes}m ${seconds}s`;
+        }
+
+        function resetAppState() {
+            if (loopInterval) {
+                clearInterval(loopInterval);
+                loopInterval = null;
+            }
+            if (progressInterval) {
+                clearInterval(progressInterval);
+                progressInterval = null;
+            }
+            isLooping = false;
+            
+            phraseElement.removeAttribute("style");
+            phraseElement.classList.remove("visible");
+            phraseElement.textContent = "";
+            
+            recognizeBtn.removeAttribute("style");
+            recognizeBtn.style.display = "block";
+            recognizeBtn.style.opacity = "1";
+            recognizeBtn.style.pointerEvents = "auto";
+            
+            stillnessMessage.removeAttribute("style");
+            stillnessMessage.classList.remove("typing");
+            stillnessMessage.textContent = "";
+            stillnessMessage.style.opacity = "0";
+            
+            restartBtn.removeAttribute("style");
+            restartBtn.classList.remove("visible");
+            restartBtn.style.display = "none";
+            restartBtn.style.opacity = "0";
+            
+            progressContainer.classList.remove("visible");
+            progressFill.style.background = "conic-gradient(#666 0deg, transparent 0deg)";
+        }
+
+        function goHome() {
+            resetAppState();
+            
+            splashScreen.style.display = "flex";
+            splashScreen.classList.remove("hidden");
+            
+            updateAwarenessTimeDisplay();
+        }
+
+        function setupSplashScreen() {
+            const categoryButtons = document.querySelectorAll("[data-category]");
+            const durationButtons = document.querySelectorAll("[data-duration]");
+
+            categoryButtons.forEach(btn => {
+                btn.addEventListener("click", () => {
+                    categoryButtons.forEach(b => b.classList.remove("active"));
+                    btn.classList.add("active");
+                    sessionData.category = btn.dataset.category;
+                });
+            });
+
+            durationButtons.forEach(btn => {
+                btn.addEventListener("click", () => {
+                    durationButtons.forEach(b => b.classList.remove("active"));
+                    btn.classList.add("active");
+                    sessionData.duration = parseInt(btn.dataset.duration);
+                });
+            });
+        }
+
+        window.beginExperience = function() {
+            splashScreen.classList.add("hidden");
+            setTimeout(() => {
+                splashScreen.style.display = "none";
+                startLoop();
+            }, 800);
+        }
+
+        window.goHome = goHome;
+
+        window.recognize = function() {
+            if (!isLooping) return;
+            
+            isLooping = false;
+            clearInterval(loopInterval);
+            
+            phraseElement.classList.remove("visible");
+            phraseElement.style.opacity = "0";
+            recognizeBtn.style.opacity = "0";
+            recognizeBtn.style.pointerEvents = "none";
+            
+            setTimeout(() => {
+                recognizeBtn.style.display = "none";
+                stillnessMessage.style.opacity = "1";
+                progressContainer.classList.add("visible");
+                
+                typeMessage(stillnessMessage, getRandomMessage(), 80);
+                
+                startTime = Date.now();
+                progressInterval = setInterval(updateProgress, 100);
+            }, 800);
+        }
+
+        window.restartLoop = function() {
+            resetAppState();
+            
+            setTimeout(() => {
+                startLoop();
+            }, 100);
+        }
+
+        document.addEventListener("DOMContentLoaded", function() {
+            setupSplashScreen();
+            updateAwarenessTimeDisplay();
+        });
+
+        document.addEventListener("keydown", function(e) {
+            if (e.code === "Space") {
+                e.preventDefault();
+                if (splashScreen && splashScreen.style.display !== "none") {
+                    window.beginExperience();
+                } else if (isLooping) {
+                    window.recognize();
+                }
+            }
+            if (e.code === "Enter" && splashScreen && splashScreen.style.display !== "none") {
+                e.preventDefault();
+                window.beginExperience();
+            }
+        });
+    </script>
+</body>
+</html>
